@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "chat-sdk": {
+      "source": "vercel/chat",
+      "sourceType": "github",
+      "computedHash": "dd43b1cf55f7a481732655011e121140143db3c1280b7ed502fa6be8180fb057"
+    },
+    "openbird": {
+      "source": "ztxtxwd/openbird-skills",
+      "sourceType": "github",
+      "computedHash": "7c3239c63b06e4fabb7523f87b5da2dcb084cb1d997b38f80ef114b465879984"
+    }
+  }
+}

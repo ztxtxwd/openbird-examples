@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "openbird": {
+      "source": "ztxtxwd/openbird-skills",
+      "sourceType": "github",
+      "computedHash": "7c3239c63b06e4fabb7523f87b5da2dcb084cb1d997b38f80ef114b465879984"
+    }
+  }
+}
