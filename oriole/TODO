@@ -1,0 +1,5 @@
+架构调整
+分步实现
+配置文件
+agent名称 拎（Lin）办（Ban）
+api使用mcp client调用 而不是直接依赖openbird
