@@ -22,8 +22,6 @@ function killOrphanedOpenbird() {
 
 const REQUIRED_TOOLS = [
   'create_group',
-  'create_webhook_bot',
-  'get_webhook_bot_info',
   'patch_group_chat',
   'pin_session',
 ];
@@ -32,8 +30,8 @@ export async function createOpenBirdClient(webhookUrl) {
   killOrphanedOpenbird();
 
   const transport = new StdioClientTransport({
-    command: 'npx',
-    args: ['openbird@latest','-y'],
+    command: 'pnpx',
+    args: ['openbird@latest'],
     env: { 
       ...process.env,
       OPENBIRD_COOKIE: process.env.OPENBIRD_COOKIE,

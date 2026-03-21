@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { startWebhookServer } from './webhook.js';
 import { createOpenBirdClient } from './mcp-client.js';
-import { initializeWorkbench } from './workbench.js';
+import { createLarkClient } from './lark.js';
+import { loadConfig } from './workbench.js';
 
 async function main() {
   console.log('🐦 Oriole starting...');
@@ -9,10 +10,12 @@ async function main() {
   let openbird;
   let shuttingDown = false;
 
-  // 检查必需的环境变量
   if (!process.env.OPENBIRD_COOKIE) {
     throw new Error('OPENBIRD_COOKIE is required');
   }
+
+  const config = await loadConfig();
+  console.log(`📍 Workbench: chatId=${config.chatId}, openChatId=${config.openChatId}`);
 
   const shutdown = async () => {
     if (shuttingDown) {
@@ -24,14 +27,23 @@ async function main() {
   };
 
   try {
+    const lark = createLarkClient(config);
+    console.log('🤖 Lark client initialized');
+
     webhook = await startWebhookServer();
     console.log(`🔗 Webhook receiver listening on ${webhook.url}`);
 
     openbird = await createOpenBirdClient(webhook.url);
     console.log(`🔌 Connected to OpenBird MCP (${openbird.tools.length} tools)`);
 
-    const workbench = await initializeWorkbench(openbird);
+    const workbench = {
+      chatId: config.chatId,
+      openChatId: config.openChatId,
+    };
+
     webhook.setWorkbench(workbench);
+    webhook.setOpenbird(openbird);
+    webhook.setLark(lark);
 
     process.on('SIGINT', async () => {
       await shutdown();
