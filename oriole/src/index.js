@@ -10,11 +10,12 @@ async function main() {
   let openbird;
   let shuttingDown = false;
 
+  const config = await loadConfig();
+
   if (!process.env.OPENBIRD_COOKIE) {
-    throw new Error('OPENBIRD_COOKIE is required');
+    throw new Error('OPENBIRD_COOKIE is required (set in config env or shell)');
   }
 
-  const config = await loadConfig();
   console.log(`📍 Workbench: chatId=${config.chatId}, openChatId=${config.openChatId}`);
 
   const shutdown = async () => {

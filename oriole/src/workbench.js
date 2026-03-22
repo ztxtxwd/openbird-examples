@@ -14,9 +14,16 @@ export async function loadConfig() {
     config = JSON.parse(content);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      throw new Error(`Config file not found: ${SETTINGS_FILE}\nCreate it with: ${JSON.stringify({ appId: '', appSecret: '', chatId: '', openChatId: '' }, null, 2)}`);
+      throw new Error(`Config file not found: ${SETTINGS_FILE}\nCreate it with: ${JSON.stringify({ appId: '', appSecret: '', chatId: '', openChatId: '', env: {} }, null, 2)}`);
     }
     throw error;
+  }
+
+  // 将 env 注入 process.env
+  if (config.env) {
+    for (const [key, value] of Object.entries(config.env)) {
+      process.env[key] = value;
+    }
   }
 
   for (const field of REQUIRED_FIELDS) {
