@@ -45,5 +45,6 @@ export async function buildBanContext({ event, workbench, lark, openbirdTools = 
     threadTranscript: threadMessages.map(formatEntry).join('\n'),
     recentRootSummary: rootMessages.map(formatEntry).join('\n'),
     availableTools: openbirdTools.map((tool) => tool.name).join(', '),
+    currentMessage: extractMessageText({ body: event?.data?.body }),
   };
 }
