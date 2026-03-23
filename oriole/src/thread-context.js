@@ -51,11 +51,17 @@ function sortRootMessages(messages) {
   );
 }
 
-export async function fetchThreadsContext(workbench, lark) {
+export async function fetchThreadsContext(workbench, lark, { startTime } = {}) {
   try {
-    const messages = await lark.listMessages(workbench.openChatId, {
+    const listOptions = {
       pageSize: CHAT_HISTORY_COUNT,
-    });
+    };
+
+    if (startTime != null) {
+      listOptions.startTime = startTime;
+    }
+
+    const messages = await lark.listMessages(workbench.openChatId, listOptions);
 
     if (!Array.isArray(messages)) {
       return '暂无事儿';

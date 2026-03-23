@@ -1,27 +1,34 @@
 import * as lark from '@larksuiteoapi/node-sdk';
 
-export function createLarkClient({ appId, appSecret }) {
-  const client = new lark.Client({
-    appId,
-    appSecret,
-  });
+export function createLarkClient({ appId, appSecret }, { client = new lark.Client({ appId, appSecret }) } = {}) {
 
   return {
-    async listMessages(chatId, { pageSize = 50 } = {}) {
-      const res = await client.im.v1.message.list({
-        params: {
-          container_id_type: 'chat',
-          container_id: chatId,
-          sort_type: 'ByCreateTimeDesc',
-          page_size: pageSize,
-        },
-      });
+    async listMessages(chatId, { pageSize = 50, startTime } = {}) {
+      const params = {
+        container_id_type: 'chat',
+        container_id: chatId,
+        sort_type: 'ByCreateTimeDesc',
+        page_size: pageSize,
+      };
 
-      if (res.code !== 0) {
-        throw new Error(`Lark listMessages failed: ${res.code} ${res.msg}`);
+      if (startTime != null) {
+        params.start_time = startTime;
       }
 
-      return res.data?.items ?? [];
+      const iterator = await client.im.v1.message.listWithIterator({ params });
+      const messages = [];
+
+      for await (const page of iterator) {
+        if (page == null) {
+          throw new Error('Lark listMessages failed during pagination');
+        }
+
+        if (Array.isArray(page.items)) {
+          messages.push(...page.items);
+        }
+      }
+
+      return messages;
     },
 
     async sendMessage(chatId, text) {

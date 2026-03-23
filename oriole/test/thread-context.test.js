@@ -62,3 +62,29 @@ test('restores hidden ids from Lark history messages back into {{}} markers', as
 
   assert.match(context, /\[root-msg-1\] 用户\{\{u1\}\}询问明天几点出发\{\{om_root_1\}\}/);
 });
+
+test('forwards startTime when fetching thread context from Lark history', async () => {
+  const calls = [];
+  const lark = {
+    async listMessages(chatId, options) {
+      calls.push({ chatId, options });
+      return [];
+    },
+  };
+
+  await fetchThreadsContext(
+    { openChatId: 'open-chat-1' },
+    lark,
+    { startTime: '1608594809' },
+  );
+
+  assert.deepEqual(calls, [
+    {
+      chatId: 'open-chat-1',
+      options: {
+        pageSize: 50,
+        startTime: '1608594809',
+      },
+    },
+  ]);
+});

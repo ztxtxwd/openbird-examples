@@ -55,6 +55,10 @@ function encodeMatterContent(content) {
   return content.includes('{{') ? encodeMarked(content) : content;
 }
 
+export function getDefaultThreadsStartTime(now = Date.now()) {
+  return String(Math.floor(now / 1000) - 3600);
+}
+
 export function createMatterHandler({ workbench, lark }) {
   return async ({ content }) => {
     console.log('content', content);
@@ -78,9 +82,9 @@ export async function handleSignal(event, workbench, openbird, lark) {
   }
 
   // 预取工作台当前话题列表
-  const threadsContext = await fetchThreadsContext(workbench, lark);
-
-  console.log(JSON.stringify(event))
+  const threadsContext = await fetchThreadsContext(workbench, lark, {
+    startTime: getDefaultThreadsStartTime(),
+  });
   // 创建工作台操作工具，,所有涉及到用户、会话的内容务必包含相应的 ID，这将大幅提高系统效率。比如说你提到了用户，那就要加上用户 ID；提到会话，就要加上相应的 Chat ID。所有 ID 用双花括号包裹。
   const createMatterTool = tool(
     'create_matter',

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMatterHandler } from '../src/lin.js';
+import { createMatterHandler, getDefaultThreadsStartTime } from '../src/lin.js';
 
 test('createMatterHandler only sends the matter message and leaves thread creation to the first reply', async () => {
   const calls = [];
@@ -40,4 +40,10 @@ test('createMatterHandler only sends the matter message and leaves thread creati
   assert.equal(calls[0].chatId, 'open-chat-1');
   assert.equal(typeof calls[0].text, 'string');
   assert.equal(calls[0].text.includes('ticket-1'), false);
+});
+
+test('getDefaultThreadsStartTime returns the unix timestamp for one hour ago', () => {
+  const now = 1_708_000_000_000;
+
+  assert.equal(getDefaultThreadsStartTime(now), '1707996400');
 });
