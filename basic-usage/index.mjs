@@ -40,8 +40,8 @@ const receiver = createServer();
 receiver.on('im.message.receive_v1', (event) => {
   const { data } = event;
   const sender = data.sender?.id ?? '?';
-  const chat = data.conversation?.id ?? '?';
-  const chatType = data.conversation?.type ?? '?';
+  const chat = data.chat?.id ?? '?';
+  const chatType = data.chat?.type ?? '?';
   const contentType = data.content?.type ?? '?';
   const text = data.content?.text ?? '';
   const preview = text.length > 80 ? text.slice(0, 80) + '...' : text;
@@ -86,7 +86,7 @@ const webhookUrl = `http://127.0.0.1:${webhookPort}/`;
 
 const transport = new StdioClientTransport({
   command: 'npx',
-  args: ['openbird'],
+  args: ['openbird@latest','-y'],
   env: {
     ...process.env,
     OPENBIRD_COOKIE: process.env.OPENBIRD_COOKIE,
@@ -96,6 +96,10 @@ const transport = new StdioClientTransport({
 });
 
 const client = new Client({ name: 'example-client', version: '1.0.0' });
+// Ensure child process is killed when parent exits for any reason
+process.on('exit', () => {
+  try { transport.close(); } catch {}
+});
 await client.connect(transport);
 console.log('[example] MCP client connected to OpenBird');
 

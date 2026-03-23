@@ -30,8 +30,8 @@ export async function createOpenBirdClient(webhookUrl) {
   killOrphanedOpenbird();
 
   const transport = new StdioClientTransport({
-    command: 'pnpx',
-    args: ['openbird@latest'],
+    command: 'node',
+    args: ['/root/projects/openbird/main/bin/openbird.js'],
     env: { 
       ...process.env,
       OPENBIRD_COOKIE: process.env.OPENBIRD_COOKIE,

@@ -7,9 +7,8 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "openbird": "^1.1.0",
-    "openbird-webhook-node": "^1.0.0",
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "openbird-webhook-node": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "dotenv": "^17.2.3"
   }
 }

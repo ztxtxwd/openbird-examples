@@ -1,5 +1,6 @@
 import { createServer } from 'openbird-webhook-node';
 import { handleSignal } from './lin.js';
+import { decode } from 'zwsteg';
 
 // 用于去重的事件 ID 集合
 const processedEvents = new Set();
@@ -45,7 +46,7 @@ export async function startWebhookServer() {
     if (data.content) {
       console.log(`  💬 Content: ${data.content.type}`);
       if (data.content.type === 'text') {
-        console.log(`  📝 Text: ${data.content.text}`);
+        console.log(`  📝 Text: ${decode(data.content.text).text}`);
       }
     }
 
@@ -71,10 +72,10 @@ export async function startWebhookServer() {
     if (chatId === workbench.chatId) {
       console.log('  🔀 → Ban（办）');
       // TODO: implement Ban
+
     } else {
       console.log('  🔀 → Lin（拎）');
-      console.log(event)
-      // await handleSignal(event, workbench, openbird, lark);
+      await handleSignal(event, workbench, openbird, lark);
     }
   }
 
