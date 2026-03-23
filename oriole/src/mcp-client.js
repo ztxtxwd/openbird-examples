@@ -1,6 +1,8 @@
 import { execSync } from 'child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 // Kill orphaned openbird processes left by previous node --watch restarts 
 function killOrphanedOpenbird() {
@@ -19,12 +21,6 @@ function killOrphanedOpenbird() {
     // pgrep returns non-zero when no matches — that's fine
   }
 }
-
-const REQUIRED_TOOLS = [
-  'create_group',
-  'patch_group_chat',
-  'pin_session',
-];
 
 export async function createOpenBirdClient(webhookUrl) {
   killOrphanedOpenbird();
@@ -52,13 +48,6 @@ export async function createOpenBirdClient(webhookUrl) {
   await client.connect(transport);
 
   const { tools } = await client.listTools();
-  const toolNames = new Set(tools.map((tool) => tool.name));
-
-  for (const toolName of REQUIRED_TOOLS) {
-    if (!toolNames.has(toolName)) {
-      throw new Error(`OpenBird MCP tool is not available: ${toolName}`);
-    }
-  }
 
   return {
     async callTool(name, args = {}) {
@@ -70,6 +59,60 @@ export async function createOpenBirdClient(webhookUrl) {
     },
     tools,
   };
+}
+
+export function classifyOpenBirdTool(tool) {
+  return tool?.annotations?.readOnly !== true;
+}
+
+export async function callObservedOpenBirdTool({
+  openbird,
+  name,
+  args = {},
+  onToolCall = () => {},
+}) {
+  const tool = openbird.tools.find((candidate) => candidate.name === name);
+  const result = await openbird.callTool(name, args);
+  onToolCall({
+    name,
+    args,
+    result,
+    tool,
+    sideEffecting: classifyOpenBirdTool(tool),
+  });
+  return result;
+}
+
+export function createOpenBirdMcpServer(openbird, { onToolCall = () => {} } = {}) {
+  const server = new McpServer(
+    { name: 'openbird-adapter', version: '0.1.0' },
+    { capabilities: { tools: {} } },
+  );
+
+  server.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: (openbird.tools ?? []).map(({ name, description, inputSchema, annotations }) => ({
+      name,
+      description,
+      inputSchema,
+      annotations,
+    })),
+  }));
+
+  server.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const result = await callObservedOpenBirdTool({
+      openbird,
+      name: request.params.name,
+      args: request.params.arguments ?? {},
+      onToolCall,
+    });
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result) }],
+      isError: result?.success === false,
+    };
+  });
+
+  return { type: 'sdk', name: 'openbird', instance: server };
 }
 
 function parseToolResult(result) {
