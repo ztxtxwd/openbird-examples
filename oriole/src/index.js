@@ -40,18 +40,15 @@ async function main() {
     webhook = await startWebhookServer();
     console.log(`🔗 Webhook receiver listening on ${webhook.url}`);
 
-    const banDeps = { workbench, lark, openbird: null };
-    const ban = createBan(banDeps);
-    webhook.setBan(ban);
+    webhook.setWorkbench(workbench);
+    webhook.setLark(lark);
 
     openbird = await createOpenBirdClient(webhook.url);
     console.log(`🔌 Connected to OpenBird MCP (${openbird.tools.length} tools)`);
-
-    banDeps.openbird = openbird;
-
-    webhook.setWorkbench(workbench);
     webhook.setOpenbird(openbird);
-    webhook.setLark(lark);
+
+    const ban = createBan({ workbench, lark, openbird });
+    await webhook.setBan(ban);
 
     process.on('SIGINT', async () => {
       await shutdown();
