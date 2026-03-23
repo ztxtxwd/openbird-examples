@@ -9,7 +9,9 @@ Oriole 当前已经有以下基础设施：
 
 - 长生命周期的 OpenBird MCP Client，位于 [src/mcp-client.js](/root/projects/openbird-examples/oriole/src/mcp-client.js)
 - Webhook 接收器，位于 [src/webhook.js](/root/projects/openbird-examples/oriole/src/webhook.js)
-- 旧的 `Lin` 流程，位于 [src/lin.js](/root/projects/openbird-examples/oriole/src/lin.js)，用于把工作台外部信号路由成工作台中的事儿
+- 现有 `Lin` 流程，位于 [src/lin.js](/root/projects/openbird-examples/oriole/src/lin.js)，用于把工作台外部信号路由成工作台中的事儿
+
+`Lin` 和 `Ban` 是整个系统两条并列且都不可缺少的核心能力：`Lin` 负责把工作台外部的信号拎清并导入工作台，`Ban` 负责处理工作台中的消息与事务推进。本文只针对 `Ban` 的实现与运行时设计，不意味着 `Lin` 是遗留物，也不意味着后续会用 `Ban` 取代 `Lin`。
 
 目前 `src/webhook.js` 中工作台分支仍然只是一个占位：
 
@@ -39,7 +41,7 @@ if (chatId === workbench.chatId) {
 
 ## 非目标
 
-- 不重做 `Lin`
+- 不在本次设计中改造 `Lin` 的职责和系统地位
 - 不引入持久化任务队列
 - 不做跨进程的运行恢复
 - 不构建复杂的事务生命周期状态机
@@ -102,7 +104,7 @@ if (chatId === workbench.chatId) {
 - [src/index.js](/root/projects/openbird-examples/oriole/src/index.js) 继续作为进程入口
 - [src/mcp-client.js](/root/projects/openbird-examples/oriole/src/mcp-client.js) 继续作为唯一的 OpenBird 连接层
 - [src/lark.js](/root/projects/openbird-examples/oriole/src/lark.js) 继续作为 Lark Open API 封装
-- [src/lin.js](/root/projects/openbird-examples/oriole/src/lin.js) 继续承担工作台外部信号路径
+- [src/lin.js](/root/projects/openbird-examples/oriole/src/lin.js) 继续承担工作台外部信号路径，与 `Ban` 并列构成系统的另一条核心能力
 
 ### 新增模块
 
