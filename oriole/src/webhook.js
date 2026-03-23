@@ -5,14 +5,21 @@ import { decode } from 'zwsteg';
 // 用于去重的事件 ID 集合
 const processedEvents = new Set();
 
-export async function startWebhookServer() {
+export async function startWebhookServer(options = {}) {
+  const { listen = true, host = '127.0.0.1' } = options ?? {};
   let workbench = null;
   let openbird = null;
   let lark = null;
+  let ban = null;
+  let lin = {
+    dispatch(event) {
+      return handleSignal(event, workbench, openbird, lark);
+    },
+  };
 
   const receiver = createServer();
 
-  receiver.on('*', async (event) => {
+  async function onEvent(event) {
     if (event.event_id && processedEvents.has(event.event_id)) {
       console.log(`⏭️  Skipping duplicate event: ${event.event_id}`);
       return;
@@ -23,15 +30,20 @@ export async function startWebhookServer() {
     }
 
     console.log(`📨 Received event: ${event.type}`);
-    await handleEvent(event);
-  });
 
-  const server = await receiver.listen(0, '127.0.0.1');
-  const address = server.address();
-  const port = typeof address === 'object' && address ? address.port : 3000;
+    await handleEvent(event);
+  }
+
+  receiver.on('*', onEvent);
+
+  let port = 0;
+  if (listen) {
+    const server = await receiver.listen(0, host);
+    const address = server.address();
+    port = typeof address === 'object' && address ? address.port : 3000;
+  }
 
   async function handleEvent(event) {
-    console.log(event._enriched);
 
     const { data } = event;
 
@@ -54,34 +66,38 @@ export async function startWebhookServer() {
       console.log(`  🧵 Thread: ${data.thread_id}`);
     }
 
-    // 忽略 Bot 自己发的消息
-    if (data.sender?.type === 'bot') {
-      console.log('  ⏭️  Ignoring bot message');
-      return;
-    }
-
     if (!workbench) {
       console.log('  ⏭️  Workbench not ready yet');
       return;
     }
 
     const chatId = data.chat?.id || data.chat_id;
-    console.log("chatId",chatId)
-    console.log("workbench.chatId",workbench.chatId)
     // 路由：工作台消息 → Ban，外部消息 → Lin
     if (chatId === workbench.chatId) {
       console.log('  🔀 → Ban（办）');
-      // TODO: implement Ban
+      if (!ban) {
+        console.log('  ⏭️  Ban not ready yet');
+        return;
+      }
+
+      await ban.dispatch(event);
+      return;
 
     } else {
+      // 忽略工作台外 Bot 自己发的消息
+      if (data.sender?.type === 'bot') {
+        console.log('  ⏭️  Ignoring bot message');
+        return;
+      }
+
       console.log('  🔀 → Lin（拎）');
-      await handleSignal(event, workbench, openbird, lark);
+      await lin.dispatch(event);
     }
   }
 
   return {
     port,
-    url: `http://127.0.0.1:${port}/`,
+    url: `http://${host}:${port}/`,
     setWorkbench(nextWorkbench) {
       workbench = nextWorkbench;
     },
@@ -90,6 +106,15 @@ export async function startWebhookServer() {
     },
     setLark(nextLark) {
       lark = nextLark;
+    },
+    setBan(nextBan) {
+      ban = nextBan;
+    },
+    setLin(nextLin) {
+      lin = nextLin;
+    },
+    __testHandleEvent(event) {
+      return onEvent(event);
     },
     close() {
       return receiver.close();

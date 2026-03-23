@@ -3,6 +3,7 @@ import { startWebhookServer } from './webhook.js';
 import { createOpenBirdClient } from './mcp-client.js';
 import { createLarkClient } from './lark.js';
 import { loadConfig } from './workbench.js';
+import { createBan } from './ban.js';
 
 async function main() {
   console.log('🐦 Oriole starting...');
@@ -31,16 +32,22 @@ async function main() {
     const lark = createLarkClient(config);
     console.log('🤖 Lark client initialized');
 
-    webhook = await startWebhookServer();
-    console.log(`🔗 Webhook receiver listening on ${webhook.url}`);
-
-    openbird = await createOpenBirdClient(webhook.url);
-    console.log(`🔌 Connected to OpenBird MCP (${openbird.tools.length} tools)`);
-
     const workbench = {
       chatId: config.chatId,
       openChatId: config.openChatId,
     };
+
+    webhook = await startWebhookServer();
+    console.log(`🔗 Webhook receiver listening on ${webhook.url}`);
+
+    const banDeps = { workbench, lark, openbird: null };
+    const ban = createBan(banDeps);
+    webhook.setBan(ban);
+
+    openbird = await createOpenBirdClient(webhook.url);
+    console.log(`🔌 Connected to OpenBird MCP (${openbird.tools.length} tools)`);
+
+    banDeps.openbird = openbird;
 
     webhook.setWorkbench(workbench);
     webhook.setOpenbird(openbird);
