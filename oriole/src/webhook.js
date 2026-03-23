@@ -72,8 +72,9 @@ export async function startWebhookServer(options = {}) {
     }
 
     const chatId = data.chat?.id || data.chat_id;
+    const isWorkbenchChat = chatId === workbench.chatId || chatId === workbench.openChatId;
     // 路由：工作台消息 → Ban，外部消息 → Lin
-    if (chatId === workbench.chatId) {
+    if (isWorkbenchChat) {
       console.log('  🔀 → Ban（办）');
       if (!ban) {
         console.log('  ⏭️  Ban not ready yet');

@@ -66,6 +66,38 @@ test('workbench human messages are routed to Ban', async () => {
   }
 });
 
+test('workbench messages routed by openChatId also reach Ban', async () => {
+  const webhook = await startWebhookServer({ listen: false });
+  const seen = [];
+
+  try {
+    webhook.setWorkbench({ chatId: 'workbench-chat', openChatId: 'open-chat-1' });
+    webhook.setBan({
+      async dispatch(event) {
+        seen.push(event.data.message_id);
+      },
+    });
+    webhook.setLin({
+      async dispatch() {
+        throw new Error('should not route to Lin');
+      },
+    });
+
+    await webhook.__testHandleEvent({
+      type: 'message.receive_v1',
+      data: {
+        chat: { id: 'open-chat-1', type: 'p2p' },
+        sender: { type: 'user', id: 'user-2' },
+        message_id: 'msg-open-1',
+      },
+    });
+
+    assert.deepEqual(seen, ['msg-open-1']);
+  } finally {
+    await webhook.close();
+  }
+});
+
 test('non-workbench bot messages are ignored (do not reach Lin)', async () => {
   const webhook = await startWebhookServer({ listen: false });
   const seen = [];
