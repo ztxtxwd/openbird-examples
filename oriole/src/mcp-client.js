@@ -73,15 +73,31 @@ export async function callObservedOpenBirdTool({
   onToolCall = () => {},
 }) {
   const tool = (openbird.tools ?? []).find((candidate) => candidate.name === name);
-  const result = await openbird.callTool(name, args);
-  onToolCall({
-    name,
-    args,
-    result,
-    tool,
-    sideEffecting: classifyOpenBirdTool(tool),
-  });
-  return result;
+  const sideEffecting = classifyOpenBirdTool(tool);
+
+  try {
+    const result = await openbird.callTool(name, args);
+    onToolCall({
+      name,
+      args,
+      result,
+      tool,
+      sideEffecting,
+    });
+    return result;
+  } catch (error) {
+    onToolCall({
+      name,
+      args,
+      result: {
+        success: false,
+        error: error?.message || String(error),
+      },
+      tool,
+      sideEffecting,
+    });
+    throw error;
+  }
 }
 
 export function createOpenBirdMcpServer(openbird, { onToolCall = () => {} } = {}) {

@@ -61,6 +61,34 @@ test('callObservedOpenBirdTool forwards calls and reports side effects', async (
   assert.equal(observed[0].sideEffecting, true);
 });
 
+test('callObservedOpenBirdTool records throwing tool calls before rethrowing', async () => {
+  const openbird = {
+    tools: [{ name: 'pin_session', annotations: { readOnlyHint: false } }],
+    async callTool() {
+      throw new Error('tool blew up');
+    },
+  };
+
+  const observed = [];
+  await assert.rejects(
+    callObservedOpenBirdTool({
+      openbird,
+      name: 'pin_session',
+      args: { chatId: 'chat-1' },
+      onToolCall: (entry) => observed.push(entry),
+    }),
+    /tool blew up/,
+  );
+
+  assert.equal(observed.length, 1);
+  assert.equal(observed[0].name, 'pin_session');
+  assert.equal(observed[0].sideEffecting, true);
+  assert.deepEqual(observed[0].result, {
+    success: false,
+    error: 'tool blew up',
+  });
+});
+
 test('createOpenBirdMcpServer list-tools exposes the full openbird tool catalog', async () => {
   const openbird = {
     tools: [

@@ -3,16 +3,38 @@ import { buildBanContext } from './ban-context.js';
 import { createOpenBirdMcpServer } from './mcp-client.js';
 import { createBanWorkbenchServer } from './ban-workbench-tools.js';
 
+const WORKBENCH_TOOL_NAMES = [
+  'reply_in_current_thread',
+  'post_top_level_message',
+  'edit_status_message',
+];
+
 function buildSystemPrompt() {
   return [
     '你是 Ban（办），负责处理工作台中的消息。',
-    '当前触发你的消息，就是这一次要处理的一件事。',
+    '只处理当前触发你的这条消息，这就是这一次要处理的一件事。',
     '你可以调用多个工具。',
     '如果没有事情可做，可以忽略。',
     '如果最新消息只是你自己刚发的回执或状态更新，应忽略该消息（避免自我触发循环）。',
     '默认优先在当前线程回复。',
     '如果产生真实外部副作用，必须在工作台留下可见记录（通过 workbench 工具写出）。',
   ].join('\n');
+}
+
+function buildMcpToolNames(serverName, toolNames) {
+  return toolNames
+    .filter((name) => typeof name === 'string' && name.trim())
+    .map((name) => `mcp__${serverName}__${name.trim()}`);
+}
+
+function buildAllowedToolNames(openbirdTools = []) {
+  return [
+    ...buildMcpToolNames(
+      'openbird',
+      openbirdTools.map((tool) => tool?.name),
+    ),
+    ...buildMcpToolNames('workbench', WORKBENCH_TOOL_NAMES),
+  ];
 }
 
 function formatToolNames(entries) {
@@ -92,6 +114,35 @@ function buildUserPrompt(context) {
   ].join('\n');
 }
 
+function createRunState() {
+  const state = {
+    lastStatusMessageId: null,
+    sideEffects: [],
+    sideEffectCountAtLastVisibleLog: -1,
+  };
+
+  let visibleLogWritten = false;
+  Object.defineProperty(state, 'visibleLogWritten', {
+    enumerable: true,
+    get() {
+      return visibleLogWritten;
+    },
+    set(value) {
+      visibleLogWritten = Boolean(value);
+      if (visibleLogWritten) {
+        state.sideEffectCountAtLastVisibleLog = state.sideEffects.length;
+      }
+    },
+  });
+
+  state.visibleLogWritten = false;
+  return state;
+}
+
+function hasVisibleLogForLatestSideEffects(state) {
+  return state.visibleLogWritten && state.sideEffectCountAtLastVisibleLog >= state.sideEffects.length;
+}
+
 export async function runBan({
   event,
   workbench,
@@ -102,11 +153,7 @@ export async function runBan({
   createOpenBirdServer = createOpenBirdMcpServer,
   createWorkbenchServer = createBanWorkbenchServer,
 } = {}) {
-  const state = {
-    visibleLogWritten: false,
-    lastStatusMessageId: null,
-    sideEffects: [],
-  };
+  const state = createRunState();
   const fallbackReplyTarget = event?.data?.thread_id ?? event?.data?.message_id;
   let context = null;
 
@@ -144,6 +191,8 @@ export async function runBan({
           openbird: openbirdServer,
           workbench: workbenchServer,
         },
+        tools: [],
+        allowedTools: buildAllowedToolNames(openbird?.tools ?? []),
         maxTurns: 8,
         pathToClaudeCodeExecutable: '/root/.local/bin/claude',
       },
@@ -161,7 +210,7 @@ export async function runBan({
     return state;
   }
 
-  if (state.sideEffects.length > 0 && !state.visibleLogWritten) {
+  if (state.sideEffects.length > 0 && !hasVisibleLogForLatestSideEffects(state)) {
     await lark.replyMessage(context.queueKey, formatFallbackReceipt(state));
   }
 
