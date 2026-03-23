@@ -62,7 +62,8 @@ export async function createOpenBirdClient(webhookUrl) {
 }
 
 export function classifyOpenBirdTool(tool) {
-  return tool?.annotations?.readOnly !== true;
+  const annotations = tool?.annotations ?? {};
+  return annotations.readOnlyHint !== true && annotations.readOnly !== true;
 }
 
 export async function callObservedOpenBirdTool({
@@ -71,7 +72,7 @@ export async function callObservedOpenBirdTool({
   args = {},
   onToolCall = () => {},
 }) {
-  const tool = openbird.tools.find((candidate) => candidate.name === name);
+  const tool = (openbird.tools ?? []).find((candidate) => candidate.name === name);
   const result = await openbird.callTool(name, args);
   onToolCall({
     name,
@@ -90,12 +91,7 @@ export function createOpenBirdMcpServer(openbird, { onToolCall = () => {} } = {}
   );
 
   server.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: (openbird.tools ?? []).map(({ name, description, inputSchema, annotations }) => ({
-      name,
-      description,
-      inputSchema,
-      annotations,
-    })),
+    tools: openbird.tools ?? [],
   }));
 
   server.server.setRequestHandler(CallToolRequestSchema, async (request) => {
