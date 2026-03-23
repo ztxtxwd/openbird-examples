@@ -7,6 +7,23 @@ export function createLarkClient({ appId, appSecret }) {
   });
 
   return {
+    async listMessages(chatId, { pageSize = 50 } = {}) {
+      const res = await client.im.v1.message.list({
+        params: {
+          container_id_type: 'chat',
+          container_id: chatId,
+          sort_type: 'ByCreateTimeDesc',
+          page_size: pageSize,
+        },
+      });
+
+      if (res.code !== 0) {
+        throw new Error(`Lark listMessages failed: ${res.code} ${res.msg}`);
+      }
+
+      return res.data?.items ?? [];
+    },
+
     async sendMessage(chatId, text) {
       const res = await client.im.v1.message.create({
         params: { receive_id_type: 'chat_id' },

@@ -1,6 +1,7 @@
 import { query, tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { encodeMarked } from 'zwsteg';
+import { fetchThreadsContext } from './thread-context.js';
 
 const SYSTEM_PROMPT = `你是 Lin（拎），名字来自"拎得清"。你是一个事件预处理器，用来分发事件。
 
@@ -12,9 +13,9 @@ const SYSTEM_PROMPT = `你是 Lin（拎），名字来自"拎得清"。你是一
 
 **Lin**：数字劳动力的其中一个agent
 
-**用户**：飞书用户，数字劳动力逻辑上的老板
+**老板**：飞书用户，数字劳动力逻辑上的老板
 
-**工作台**：用户与一个专门创建的的飞书机器人的私聊，是用户与数字劳动力沟通的地方。会话里的每个"话题"（thread）代表一个独立的事儿。
+**工作台**：老板与一个专门创建的的飞书机器人的私聊，是老板与数字劳动力沟通的地方。会话里的每个"话题"（thread）代表一个独立的事儿。
 
 **事儿**：当个事儿办的事儿，事儿事儿有回应的事儿，没事儿找事儿的事儿，载体是工作台里的一个话题。每个事儿有一个 thread_id（即该话题首条消息的 message_id）。事儿是最小的协作单元——一件需要跟进的事就是一个事儿。
 
@@ -25,7 +26,7 @@ const SYSTEM_PROMPT = `你是 Lin（拎），名字来自"拎得清"。你是一
 你收到一个消息，需要判断：这个消息是否代表一件需要在工作台跟进的事儿？
 
 三种决策：
-1. **创建新事儿** → 调用 create_matter。消息代表一件还从未和用户讨论过的事儿。
+1. **创建新事儿** → 调用 create_matter。消息代表一件还从未和老板讨论过的事儿。
 2. **追加到已有事儿** → 调用 append_matter。消息明确是某个已存在事儿的后续进展。
 3. **忽略** → 不调用任何工具。
 
@@ -50,6 +51,22 @@ const SYSTEM_PROMPT = `你是 Lin（拎），名字来自"拎得清"。你是一
 - 宁可创建新事儿，也不要错误追加到无关的事儿
 - 如果拿不准是否和已有事儿相关，创建新的`;
 
+function encodeMatterContent(content) {
+  return content.includes('{{') ? encodeMarked(content) : content;
+}
+
+export function createMatterHandler({ workbench, lark }) {
+  return async ({ content }) => {
+    console.log('content', content);
+
+    const encoded = encodeMatterContent(content);
+    await lark.sendMessage(workbench.openChatId, encoded);
+
+    console.log(`  📌 Lin: created matter — ${content}`);
+    return { content: [{ type: 'text', text: `已创建事儿: ${content}` }] };
+  };
+}
+
 /**
  * Lin: 分析外界信号，决定创建/追加/忽略
  */
@@ -61,7 +78,7 @@ export async function handleSignal(event, workbench, openbird, lark) {
   }
 
   // 预取工作台当前话题列表
-  const threadsContext = await fetchThreadsContext(workbench, openbird);
+  const threadsContext = await fetchThreadsContext(workbench, lark);
 
   console.log(JSON.stringify(event))
   // 创建工作台操作工具，,所有涉及到用户、会话的内容务必包含相应的 ID，这将大幅提高系统效率。比如说你提到了用户，那就要加上用户 ID；提到会话，就要加上相应的 Chat ID。所有 ID 用双花括号包裹。
@@ -71,27 +88,7 @@ export async function handleSignal(event, workbench, openbird, lark) {
     {
       content: z.string().describe('事儿的完整描述。正确示例：用户赵天雄{{7321915301888393220}}通过私聊{{7608756869594614964}}消息{{7608756869594614964}}询问明天几点出发。错误示例：赵天雄（私聊）问：明天几点出发')
     },
-    async ({ content }) => {
-      console.log("content",content)
-      // 将 {{id}} 编码为零宽字符
-      const encoded = content.includes('{{') ? encodeMarked(content) : content;
-
-      // 1. 通过 Lark Open API 以 Bot 身份发消息
-      const message = await lark.sendMessage(workbench.openChatId, encoded);
-      const messageId = message?.message_id;
-
-      // 2. 调用 OpenBird MCP 创建话题
-      if (messageId) {
-        try {
-          await openbird.callTool('create_thread', { message_id: messageId });
-        } catch (err) {
-          console.log(`  ⚠️  Lin: create_thread failed: ${err.message}`);
-        }
-      }
-
-      console.log(`  📌 Lin: created matter — ${content}`);
-      return { content: [{ type: 'text', text: `已创建事儿: ${content}` }] };
-    },
+    createMatterHandler({ workbench, lark }),
   );
 
   const appendMatterTool = tool(
@@ -103,7 +100,7 @@ export async function handleSignal(event, workbench, openbird, lark) {
     },
     async ({ thread_id, content }) => {
       // 将 {{id}} 编码为零宽字符
-      const encoded = content.includes('{{') ? encodeMarked(content) : content;
+      const encoded = encodeMatterContent(content);
 
       // 通过 Lark Open API 以 Bot 身份回复话题
       await lark.replyMessage(thread_id, encoded);
@@ -134,8 +131,8 @@ ${threadsContext}
     for await (const message of query({
       prompt,
       options: {
-        // model: 'claude-opus-4-6',
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-opus-4-6',
+        // model: 'claude-haiku-4-5-20251001',
         systemPrompt: SYSTEM_PROMPT,
         mcpServers: { workbench: server },
         allowedTools: [
@@ -189,31 +186,4 @@ function describeSignal(event) {
   }
 
   return parts.join('\n');
-}
-
-/**
- * 预取工作台话题列表作为上下文
- */
-async function fetchThreadsContext(workbench, openbird) {
-  try {
-    const result = await openbird.callTool('get_chat_history', {
-      chat_id: workbench.chatId,
-      count: 50,
-    });
-
-    if (!result?.success || !result.messages) {
-      return '暂无事儿';
-    }
-
-    // root messages（没有 parentMsgId）就是话题
-    const threads = result.messages
-      .filter((msg) => !msg.parentMsgId)
-      .map((msg) => `- [${msg.messageId}] ${msg.text || '(无文本内容)'}`)
-      .slice(0, 20);
-
-    return threads.length > 0 ? threads.join('\n') : '暂无事儿';
-  } catch (err) {
-    console.log(`  ⚠️  Lin: failed to fetch threads: ${err.message}`);
-    return '（无法获取事儿列表）';
-  }
 }
