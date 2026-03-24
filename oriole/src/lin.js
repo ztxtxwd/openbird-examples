@@ -128,8 +128,6 @@ ${signal}
 ${threadsContext}
 
 请分析这消息，决定是创建新事儿、追加到已有事儿、还是忽略。`;
-
-  console.log("prompt", prompt)
   console.log('  🧠 Lin analyzing...');
   try {
     for await (const message of query({
