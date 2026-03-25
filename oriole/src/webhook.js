@@ -163,6 +163,7 @@ export async function startWebhookServer(options = {}) {
       }
 
       console.log('  🔀 → Lin（拎）');
+      console.log(event)
       await lin.dispatch(event);
       return true;
     }

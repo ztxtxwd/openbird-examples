@@ -133,8 +133,8 @@ ${threadsContext}
     for await (const message of query({
       prompt,
       options: {
-        model: 'claude-opus-4-6',
-        // model: 'claude-haiku-4-5-20251001',
+        // model: 'claude-opus-4-6',
+        model: 'claude-haiku-4-5-20251001',
         systemPrompt: SYSTEM_PROMPT,
         mcpServers: { workbench: server },
         allowedTools: [
